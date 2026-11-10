@@ -99,6 +99,9 @@ libraries on your system (the crate is `voxl-server`, the binary is `voxl`):
 cargo install voxl-server
 ```
 
+After an upgrade, a page left open offers to reload once it reconnects, so it doesn't
+keep running the old client against the new server.
+
 Run it against an X display, then open the link it prints (`?stats` adds an FPS
 overlay):
 
