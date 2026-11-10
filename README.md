@@ -163,6 +163,12 @@ one up when it starts and prints a link that signs you in. There are three ways 
 The page's scripts and `/healthz` load without it. If voxl sits behind a proxy that signs
 people in itself, `--enable-basic-auth=false` turns voxl's login off.
 
+When its connection drops, the page says why and keeps retrying: the server can't be
+reached, it no longer takes the page's password, it refused the page (naming the flag to
+add), or it answers but the stream's WebSocket fails, as behind a proxy that doesn't pass
+WebSockets. To find out, the page asks the server over HTTP with an `X-Voxl-Probe`
+header, which gets a 401 without the sign-in prompt.
+
 ### Hosts and origins
 
 voxl only answers requests for an IP address or `localhost`, and only from its own page.
