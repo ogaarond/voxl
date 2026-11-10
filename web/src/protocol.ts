@@ -134,7 +134,9 @@ export type ToWorker =
 	| { t: 'send'; d: string }
 	| { t: 'sendBin'; d: ArrayBuffer }
 	| { t: 'video'; on: boolean }
-	| { t: 'audioPort'; port: MessagePort };
+	| { t: 'audioPort'; port: MessagePort }
+	/** Desktop audio muted by the viewer: the server stops sending it. */
+	| { t: 'mute'; on: boolean };
 
 /** Worker -> desktop audio worklet: one decoded chunk, planar. */
 export interface PcmChunk {

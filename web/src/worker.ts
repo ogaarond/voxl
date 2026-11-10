@@ -25,6 +25,14 @@ let audioPort: MessagePort | null = null;
 let audioTs = 0;
 let wantVideo = true;
 let wantAudio = false;
+let muted = false;
+/** Audio is wanted once the player is ready, unless the viewer muted it. */
+function updateAudio() {
+	const on = !!audioPort && !muted;
+	if (on === wantAudio) return;
+	wantAudio = on;
+	send(cmd.audio(on));
+}
 
 // The screen arrives as independent H.264 stripes, one decoder each. A frame is a
 // set of stripe updates sharing an id; frames are presented whole and in order.
@@ -394,8 +402,11 @@ self.addEventListener('message', (e: MessageEvent<ToWorker>) => {
 			break;
 		case 'audioPort':
 			audioPort = m.port;
-			wantAudio = true;
-			send(cmd.audio(true));
+			updateAudio();
+			break;
+		case 'mute':
+			muted = m.on;
+			updateAudio();
 			break;
 	}
 });

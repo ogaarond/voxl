@@ -6,6 +6,7 @@ import type { App } from './app';
 import { el } from './app';
 import { createAudio } from './audio';
 import { createClipboard } from './clipboard';
+import { createControls } from './controls';
 import { createCursor } from './cursor';
 import { createFiles } from './files';
 import { setupKeyboard } from './keyboard';
@@ -102,6 +103,14 @@ function main() {
 	setupToolbar(app, video.layout);
 	const files = createFiles(app);
 	setupKeyboard(app, clipboard, createKeymap(app), onInteract);
+	let showStats = false;
+	const controls = createControls(app, {
+		setMute: (on) => post({ t: 'mute', on }),
+		setStats: (on) => {
+			showStats = on;
+			if (!on) statsEl.style.display = 'none';
+		},
+	});
 	const mic = createMic(app);
 	const resize = createResize(app);
 
@@ -148,6 +157,7 @@ function main() {
 				files.setup(m.files);
 				mic.setup(!!m.mic && !app.readOnly);
 				resize.setup(m.resize);
+				controls.setup(!!m.audio, app.readOnly);
 				statusEl.style.display = 'none';
 				break;
 			case 'status':
@@ -173,7 +183,7 @@ function main() {
 			case 'stats':
 				window.fps = Math.round(m.fps);
 				window.voxlStats = m;
-				if (params.has('stats')) {
+				if (showStats) {
 					statsEl.style.display = 'block';
 					statsEl.textContent =
 						`${m.fps.toFixed(1)} fps  ${(m.kbps / 1000).toFixed(2)} Mbps\n` +

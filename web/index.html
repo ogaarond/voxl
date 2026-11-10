@@ -287,7 +287,8 @@
 				letter-spacing: -0.2px;
 			}
 			#files.open,
-			#keys.open {
+			#keys.open,
+			#controls.open {
 				display: flex;
 				animation: enter 0.15s cubic-bezier(0.23, 1, 0.32, 1);
 			}
@@ -299,12 +300,14 @@
 			}
 			@media (prefers-reduced-motion: reduce) {
 				#files.open,
-				#keys.open {
+				#keys.open,
+				#controls.open {
 					animation: none;
 				}
 			}
 			#files header,
-			#keys header {
+			#keys header,
+			#controls header {
 				display: flex;
 				align-items: center;
 				gap: 4px;
@@ -314,7 +317,8 @@
 				box-sizing: border-box;
 			}
 			#files header h2,
-			#keys header h2 {
+			#keys header h2,
+			#controls header h2 {
 				flex: 1;
 				margin: 0;
 				font-size: 13px;
@@ -548,8 +552,9 @@
 				color: var(--text-weak);
 			}
 
-			/* Key mapping panel: the Files panel's frame, as tall as its rows. */
-			#keys {
+			/* Key mapping and Controls panels: the Files panel's frame, as tall as their rows. */
+			#keys,
+			#controls {
 				position: fixed;
 				top: 8px;
 				right: 8px;
@@ -633,6 +638,110 @@
 			#keys-add.on {
 				color: var(--text-title);
 				box-shadow: 0 0 0 1.5px var(--accent) inset;
+			}
+
+			#controls .body {
+				overflow-y: auto;
+			}
+			.c-head {
+				padding: 10px 12px 4px;
+				color: var(--text-weak);
+				font-weight: 520;
+			}
+			#controls-keys {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 4px;
+				padding: 2px 6px 6px;
+			}
+			.c-key {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 6px;
+				min-width: 0;
+				height: 30px;
+				padding: 0 8px;
+				border: 0;
+				border-radius: 8px;
+				background: var(--fill-tertiary);
+				color: var(--text-default);
+				font-weight: 520;
+				cursor: pointer;
+				transition:
+					background-color 0.1s,
+					transform 0.15s ease-out;
+			}
+			.c-key:hover {
+				background: var(--fill-tertiary-hover);
+				color: var(--text-title);
+			}
+			.c-key:active {
+				background: var(--fill-tertiary-pressed);
+				transform: scale(0.97);
+			}
+			.c-key span {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.c-key kbd {
+				flex: none;
+				color: var(--text-weak);
+				font: inherit;
+				font-weight: 440;
+			}
+			.c-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				height: 36px;
+				margin: 0 6px;
+				padding: 0 6px;
+				border-radius: 6px;
+				color: var(--text-default);
+				font-weight: 520;
+				cursor: pointer;
+			}
+			.c-row:hover {
+				background: var(--state-hover);
+			}
+			#controls-toggles {
+				padding: 2px 0 6px;
+				border-top: 1px solid var(--border-default);
+			}
+			/* Switches: a checkbox drawn as a track and knob. */
+			.c-row input {
+				appearance: none;
+				position: relative;
+				width: 28px;
+				height: 16px;
+				margin: 0;
+				border-radius: 999px;
+				background: var(--fill-primary);
+				cursor: pointer;
+				transition: background-color 0.15s;
+			}
+			.c-row input::after {
+				content: '';
+				position: absolute;
+				top: 2px;
+				left: 2px;
+				width: 12px;
+				height: 12px;
+				border-radius: 50%;
+				background: #fff;
+				transition: transform 0.15s ease-out;
+			}
+			.c-row input:checked {
+				background: var(--accent);
+			}
+			.c-row input:checked::after {
+				transform: translateX(12px);
+			}
+			.c-row input:focus-visible {
+				outline: none;
+				box-shadow: var(--focus-ring);
 			}
 
 			/* Drop target: a dialog-style card over a scrim. */
@@ -769,6 +878,20 @@
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round" />
+				</svg>
+			</button>
+			<button
+				id="controls-btn"
+				class="ib"
+				type="button"
+				title="Controls"
+				aria-label="Controls">
+				<svg class="i" viewBox="0 0 24 24" fill="none">
+					<path
+						d="M4 7H13M17 7H20M4 17H7M11 17H20M15 4V10M9 14V20"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round" />
 				</svg>
 			</button>
 			<button
@@ -916,6 +1039,39 @@
 				Each key on your keyboard sends the key you pick to the remote computer.
 				Saved in this browser for this host.
 			</footer>
+		</div>
+		<div id="controls" role="dialog" aria-label="Controls">
+			<header>
+				<h2>Controls</h2>
+				<button
+					id="controls-close"
+					class="ib sm"
+					type="button"
+					title="Close"
+					aria-label="Close">
+					<svg class="i" viewBox="0 0 24 24" fill="none">
+						<path
+							d="M8 8L16 16M16 8L8 16"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round" />
+					</svg>
+				</button>
+			</header>
+			<div class="body">
+				<div id="controls-keys-section">
+					<div class="c-head">Send to remote</div>
+					<div id="controls-keys"></div>
+				</div>
+				<div id="controls-toggles">
+					<label class="c-row" id="controls-audio-row"
+						>Desktop audio<input id="controls-audio" type="checkbox"
+					/></label>
+					<label class="c-row"
+						>Stats overlay<input id="controls-stats" type="checkbox"
+					/></label>
+				</div>
+			</div>
 		</div>
 		<div id="drop">
 			<div class="frame">
