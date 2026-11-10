@@ -161,6 +161,7 @@ pub fn spawn(_device: String, bitrate: i32, hub: Arc<Hub>) {
                     .iter()
                     .any(|c| c.audio.load(Ordering::Relaxed))
             };
+            let mut retry = crate::retry::RetryLog::new("audio capture");
             loop {
                 if !want() {
                     std::thread::sleep(Duration::from_millis(200));
@@ -200,11 +201,12 @@ pub fn spawn(_device: String, bitrate: i32, hub: Arc<Hub>) {
                 let s = match s {
                     Ok(s) => s,
                     Err(e) => {
-                        log::warn!("audio capture failed ({e}); retrying");
+                        retry.failed(&e);
                         std::thread::sleep(Duration::from_secs(2));
                         continue;
                     }
                 };
+                retry.recovered();
                 log::info!("audio capture started");
                 while want() && !s.stopped.load(Ordering::Relaxed) {
                     std::thread::sleep(Duration::from_millis(200));

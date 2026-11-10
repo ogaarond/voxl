@@ -123,25 +123,16 @@ fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
     if !cfg!(target_os = "macos") {
         return build(cfg, hub);
     }
-    let started = Instant::now();
+    let mut retry = crate::retry::RetryLog::new("video capture");
     let mut delay = Duration::from_millis(250);
-    let mut last_log: Option<Instant> = None;
     loop {
         match build(cfg, hub) {
             Ok(p) => {
-                if last_log.is_some() {
-                    log::info!(
-                        "video capture resumed after {:.1} s",
-                        started.elapsed().as_secs_f64()
-                    );
-                }
+                retry.recovered();
                 return Ok(p);
             }
             Err(e) => {
-                if last_log.is_none_or(|t| t.elapsed() >= Duration::from_secs(30)) {
-                    log::warn!("video capture unavailable ({e}); retrying");
-                    last_log = Some(Instant::now());
-                }
+                retry.failed(&e);
                 std::thread::sleep(delay);
                 delay = (delay * 2).min(Duration::from_secs(2));
             }

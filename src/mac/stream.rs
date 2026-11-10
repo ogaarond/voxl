@@ -79,18 +79,20 @@ fn shareable_display(id: u32) -> Result<Retained<SCDisplay>, String> {
                 .iter()
                 .find(|d| unsafe { d.displayID() } == id)
                 .map(SendBox)
-                .ok_or_else(|| format!("display {id} is not available for capture")),
-            None => Err(unsafe { err.as_ref() }
-                .map(|e| e.localizedDescription().to_string())
-                .unwrap_or_else(|| "no shareable content".into())),
+                // Listing worked, so permission is fine: the display is asleep or gone.
+                .ok_or_else(|| format!("display {id} is asleep or disconnected")),
+            None => Err(format!(
+                "{} (is Screen Recording allowed in System Settings > Privacy & Security?)",
+                unsafe { err.as_ref() }
+                    .map(|e| e.localizedDescription().to_string())
+                    .unwrap_or_else(|| "no shareable content".into())
+            )),
         };
         let _ = tx.send(r);
     });
     unsafe { SCShareableContent::getShareableContentWithCompletionHandler(&block) };
     match rx.recv_timeout(Duration::from_secs(10)) {
-        Ok(r) => r.map(|b| b.0).map_err(|e| {
-            format!("{e} (is Screen Recording allowed in System Settings > Privacy & Security?)")
-        }),
+        Ok(r) => r.map(|b| b.0),
         Err(_) => Err("timed out listing displays".into()),
     }
 }

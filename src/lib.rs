@@ -26,6 +26,7 @@ mod mac;
 mod mic;
 mod mp4;
 mod record;
+mod retry;
 #[cfg(target_os = "linux")]
 mod screen;
 mod server;
