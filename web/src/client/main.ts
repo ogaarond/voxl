@@ -6,6 +6,7 @@ import type { App } from './app';
 import { el } from './app';
 import { createAudio } from './audio';
 import { createClipboard } from './clipboard';
+import { downMessage } from './connection';
 import { createCursor } from './cursor';
 import { createFiles } from './files';
 import { setupKeyboard } from './keyboard';
@@ -152,10 +153,15 @@ function main() {
 			case 'status':
 				if (m.s === 'closed') {
 					mic.stop();
+					// Dim the last frame so it doesn't pass for the live desktop.
+					app.surface.classList.add('stale');
 					statusEl.style.display = '';
-					statusEl.textContent = 'Reconnecting…';
+					statusEl.textContent = downMessage(m.why, m.detail, m.down);
 				}
-				if (m.s === 'open') updateVisibility(true);
+				if (m.s === 'open') {
+					app.surface.classList.remove('stale');
+					updateVisibility(true);
+				}
 				break;
 			case 'cursor':
 				cursor.set(m.buf);

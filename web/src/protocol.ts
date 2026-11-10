@@ -121,12 +121,30 @@ export interface Stats {
 /** Worker -> page. Server messages other than ping and close are forwarded as is. */
 export type FromWorker =
 	| { t: 'frames'; parts: StripeFrame[] }
-	| { t: 'status'; s: 'open' | 'closed' }
+	| { t: 'status'; s: 'open' }
+	| {
+			t: 'status';
+			s: 'closed';
+			/** Why the socket is down, as far as the worker could tell. */
+			why: DownReason;
+			/** The server's own explanation (a refusal's body). */
+			detail?: string;
+			/** Milliseconds since the connection was last up (or first tried). */
+			down: number;
+	  }
 	| { t: 'cursor'; buf: ArrayBuffer }
 	| { t: 'clipImage'; buf: ArrayBuffer }
 	| { t: 'log'; s: string }
 	| Stats
 	| Exclude<ServerMessage, { t: 'ping' } | { t: 'close' }>;
+
+/**
+ * Why the stream's socket is down: `lost` (it was up and dropped), `unreachable` (no
+ * answer at all), `auth` (the password was refused), `refused` (the server turned
+ * this page away, see `detail`), or `ws` (the server answers but the socket fails,
+ * e.g. a proxy that doesn't pass WebSockets).
+ */
+export type DownReason = 'lost' | 'unreachable' | 'auth' | 'refused' | 'ws';
 
 /** Page -> worker. */
 export type ToWorker =

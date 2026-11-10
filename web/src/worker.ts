@@ -3,6 +3,7 @@
 // frames to the page when it presents them through <video>.
 import { Bin, cmd, parseVideoHeader, VIDEO_HEADER_BYTES } from './protocol';
 import type {
+	DownReason,
 	FromWorker,
 	PcmChunk,
 	ServerMessage,
@@ -80,19 +81,68 @@ function post(m: FromWorker, transfer: Transferable[] = []) {
 	self.postMessage(m, transfer);
 }
 
+/** When the connection was last up, or first tried: 0 while it is up. */
+let downSince = Date.now();
+/** Failed attempts since the connection was last up. */
+let failures = 0;
+
+/**
+ * Browsers don't say why a WebSocket was refused, so ask the server over HTTP: the
+ * same URL with the same password, marked as a probe so a 401 doesn't pop the
+ * browser's sign-in prompt on every retry.
+ */
+async function diagnose(): Promise<{ why: DownReason; detail?: string }> {
+	let r: Response;
+	try {
+		r = await fetch(url.replace(/^ws/, 'http'), {
+			cache: 'no-store',
+			headers: { 'X-Voxl-Probe': '1' },
+		});
+	} catch {
+		return { why: 'unreachable' };
+	}
+	if (r.status === 401) return { why: 'auth' };
+	if (r.status === 403) {
+		const detail = (await r.text().catch(() => '')).trim().slice(0, 400);
+		return { why: 'refused', detail: detail || undefined };
+	}
+	return { why: 'ws' };
+}
+
 function connect() {
 	const sock = new WebSocket(url);
 	ws = sock;
 	sock.binaryType = 'arraybuffer';
+	let opened = false;
 	sock.addEventListener('open', () => {
+		opened = true;
+		downSince = 0;
+		failures = 0;
 		post({ t: 'status', s: 'open' });
 		send(cmd.video(wantVideo));
 		send(cmd.audio(wantAudio));
 	});
 	sock.addEventListener('close', () => {
-		post({ t: 'status', s: 'closed' });
 		resetDecoder();
-		setTimeout(connect, 1000);
+		if (!downSince) downSince = Date.now();
+		// Quick retries ride out a server restart; after that, every few seconds.
+		const delay = ++failures <= 5 ? 1000 : 5000;
+		const report = (why: DownReason, detail?: string) =>
+			post({
+				t: 'status',
+				s: 'closed',
+				why,
+				detail,
+				down: Date.now() - downSince,
+			});
+		if (opened) {
+			report('lost');
+			setTimeout(connect, delay);
+			return;
+		}
+		diagnose()
+			.then((d) => report(d.why, d.detail))
+			.finally(() => setTimeout(connect, delay));
 	});
 	sock.addEventListener('message', (e: MessageEvent<string | ArrayBuffer>) => {
 		if (typeof e.data === 'string') return onText(e.data);

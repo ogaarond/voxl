@@ -117,6 +117,10 @@ fn random_password() -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Header the web client sets on the background request it makes to find out why its
+/// socket was refused; see `refusal`.
+pub const PROBE_HEADER: &str = "x-voxl-probe";
+
 /// Middleware for every route: answers 401 with a Basic challenge, so a browser asks
 /// for the password, instead of running the handler for a request without it.
 pub async fn check(State(login): State<Arc<Login>>, req: Request, next: Next) -> Response {
@@ -124,14 +128,26 @@ pub async fn check(State(login): State<Arc<Login>>, req: Request, next: Next) ->
         return next.run(req).await;
     }
     log::debug!("no password: {} {}", req.method(), req.uri().path());
+    refusal(req.headers())
+}
+
+/// The 401 for a request without the password. It carries the Basic challenge (so a
+/// browser asks for the password), except for the web client's probe: the page only
+/// wants to tell its viewer to sign in again, not to pop the browser's prompt each
+/// time it retries.
+fn refusal(headers: &HeaderMap) -> Response {
+    const WHY: &str = "voxl needs its password: open the link voxl printed when it started, \
+         sign in when the browser asks, or send Authorization: Bearer <password>";
+    if headers.contains_key(PROBE_HEADER) {
+        return (StatusCode::UNAUTHORIZED, WHY).into_response();
+    }
     (
         StatusCode::UNAUTHORIZED,
         [(
             header::WWW_AUTHENTICATE,
             r#"Basic realm="voxl", charset="UTF-8""#,
         )],
-        "voxl needs its password: open the link voxl printed when it started, sign in when \
-         the browser asks, or send Authorization: Bearer <password>",
+        WHY,
     )
         .into_response()
 }
@@ -227,6 +243,19 @@ mod tests {
         assert!(admitted(&login, &format!("/?stats&token={encoded}"), None));
         assert!(admitted(&login, &format!("/ws?token={pw}"), None));
         assert!(!admitted(&login, &format!("/ws?token={}", &pw[1..]), None));
+    }
+
+    #[test]
+    fn the_clients_probe_gets_no_browser_prompt() {
+        let challenge = |headers: &HeaderMap| {
+            let r = refusal(headers);
+            assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+            r.headers().contains_key(header::WWW_AUTHENTICATE)
+        };
+        assert!(challenge(&HeaderMap::new()));
+        let mut probe = HeaderMap::new();
+        probe.insert(PROBE_HEADER, HeaderValue::from_static("1"));
+        assert!(!challenge(&probe));
     }
 
     #[test]
