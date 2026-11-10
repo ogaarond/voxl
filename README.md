@@ -173,6 +173,20 @@ To let a page on another site connect, name that site with `--allowed-origins`.
 Programs that aren't browsers (curl, scripts, agents) send no `Origin` and connect as
 usual. A refused request gets a 403 that names the flag to add.
 
+### In the browser
+
+Move the mouse to the top-right corner of the page for the toolbar (on phones and tablets
+it stays at the bottom right): the on-screen keyboard, the microphone, files, key mapping
+and fullscreen. In fullscreen, Chromium browsers also pass shortcuts like Ctrl+W and
+Alt+Tab to the desktop; hold Esc to leave.
+
+Keys map by role: a PC keyboard's Ctrl is Command on a Mac desktop and its Windows key is
+Control, and a Mac keyboard's Command is Ctrl on a Linux or Windows desktop. **Key
+mapping** remaps single keys, as Chrome Remote Desktop does: press a key on your keyboard
+and pick what it sends, such as Left Alt as Command, so a PC keyboard has Command where a
+Mac keyboard does, or Caps Lock as Escape. Mappings are saved in the browser, for each
+voxl host.
+
 ### For agents and scripts
 
 Screenshots and recordings (start voxl with `VOXL_PASSWORD` set, and send it along):
