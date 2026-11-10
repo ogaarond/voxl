@@ -13,6 +13,7 @@ import { createMic } from './mic';
 import { setupPointer } from './pointer';
 import { createResize } from './resize';
 import { setupToolbar } from './toolbar';
+import { createUpdateCheck } from './update';
 import { createVideo } from './video';
 import { createZoom } from './zoom';
 
@@ -103,6 +104,7 @@ function main() {
 	const files = createFiles(app);
 	const mic = createMic(app);
 	const resize = createResize(app);
+	const update = createUpdateCheck(app);
 
 	const offscreen = canvas.transferControlToOffscreen();
 	post(
@@ -137,6 +139,7 @@ function main() {
 				video.present(m.parts);
 				break;
 			case 'hello':
+				update.check(m.build);
 				app.desk.w = m.w;
 				app.desk.h = m.h;
 				app.remoteMac = m.os === 'macos';

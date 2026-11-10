@@ -335,6 +335,7 @@ impl Hub {
     pub fn hello(&self) -> String {
         let mut m = self.hello_extra.lock().clone();
         m.insert("t".into(), "hello".into());
+        m.insert("build".into(), crate::server::WEB_BUILD.into());
         m.insert("w".into(), self.width.load(Ordering::Relaxed).into());
         m.insert("h".into(), self.height.load(Ordering::Relaxed).into());
         m.insert("stripes".into(), serde_json::json!(*self.stripes.lock()));

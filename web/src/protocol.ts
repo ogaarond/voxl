@@ -45,6 +45,8 @@ export interface Hello {
 	readOnly?: boolean;
 	/** Dynamic resolution: desktop pixels per CSS pixel of the viewer's window. */
 	resize?: { scale: number };
+	/** Build of the web client the server serves now (WEB_BUILD in src/server.rs). */
+	build?: string;
 }
 
 /** JSON text messages from the server. */

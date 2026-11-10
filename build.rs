@@ -114,5 +114,31 @@ fn bundle_web(out: &std::path::Path) {
         });
     assert!(status.success(), "esbuild failed to bundle web/src");
     println!("cargo:rerun-if-changed=web/src");
+    println!("cargo:rerun-if-changed=web/index.html");
     println!("cargo:rerun-if-env-changed=ESBUILD");
+    web_build_id(out);
+}
+
+/// Fingerprints the web client (the page and the bundled scripts) as VOXL_WEB_BUILD.
+/// The server puts it in the page and in its hello, so an open page can tell that
+/// the server now serves a different client and offer to reload.
+fn web_build_id(out: &std::path::Path) {
+    use std::hash::Hasher;
+    // DefaultHasher::new() uses fixed keys: stable for a given toolchain, which is
+    // all a "did the client change" check needs.
+    let mut h = std::hash::DefaultHasher::new();
+    let web = out.join("web");
+    for path in [
+        std::path::PathBuf::from("web/index.html"),
+        web.join("client.js"),
+        web.join("worker.js"),
+        web.join("audio.js"),
+        web.join("mic.js"),
+    ] {
+        let bytes = std::fs::read(&path)
+            .unwrap_or_else(|e| panic!("reading {} to fingerprint it: {e}", path.display()));
+        h.write(&bytes);
+        h.write_u8(0);
+    }
+    println!("cargo:rustc-env=VOXL_WEB_BUILD={:016x}", h.finish());
 }

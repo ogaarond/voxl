@@ -34,6 +34,11 @@ pub struct AppState {
     pub favicon_type: &'static str,
 }
 
+/// Fingerprint of the embedded web client (build.rs). The page carries the one it was
+/// served with and the hello carries the current one, so a page left open across an
+/// upgrade can tell and offer to reload.
+pub const WEB_BUILD: &str = env!("VOXL_WEB_BUILD");
+
 /// The web client's page, titled `title` (--title): the browser tab, and the name of
 /// the app if a viewer installs it.
 pub fn index_html(title: &str) -> Bytes {
@@ -48,7 +53,11 @@ pub fn index_html(title: &str) -> Bytes {
             c => escaped.push(c),
         }
     }
-    Bytes::from(include_str!("../web/index.html").replace("{{title}}", &escaped))
+    Bytes::from(
+        include_str!("../web/index.html")
+            .replace("{{title}}", &escaped)
+            .replace("{{build}}", WEB_BUILD),
+    )
 }
 
 /// The page's icon (--favicon): that file's bytes and content type, or voxl's own icon.

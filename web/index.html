@@ -7,6 +7,8 @@
 			content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 		<!-- The server fills in the title (index_html in src/server.rs). -->
 		<meta name="application-name" content="{{title}}" />
+		<!-- The web client's build (WEB_BUILD in src/server.rs), to notice upgrades. -->
+		<meta name="voxl-build" content="{{build}}" />
 		<meta name="apple-mobile-web-app-title" content="{{title}}" />
 		<link rel="icon" href="favicon.ico" />
 		<link
@@ -246,6 +248,35 @@
 				font: 520 14px/20px var(--font);
 				letter-spacing: -0.1px;
 				pointer-events: none;
+			}
+			/* Upgrade notice: a pill at the top centre, over the desktop. */
+			#update {
+				position: fixed;
+				top: 8px;
+				left: 50%;
+				transform: translateX(-50%);
+				z-index: 5;
+				display: none;
+				align-items: center;
+				gap: 8px;
+				padding: 4px 4px 4px 12px;
+				background: var(--surface-secondary);
+				border: 1px solid var(--border-default);
+				border-radius: 12px;
+				box-shadow: var(--shadow-lg);
+				color: var(--text-default);
+				font: 520 13px/16px var(--font);
+				letter-spacing: -0.2px;
+				white-space: nowrap;
+			}
+			#update.show {
+				display: flex;
+				animation: enter 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#update.show {
+					animation: none;
+				}
 			}
 			#stats {
 				position: fixed;
@@ -799,6 +830,26 @@
 					><b>Drop to upload</b><span>to <span id="drop-dir"></span></span>
 				</div>
 			</div>
+		</div>
+		<div id="update" role="status">
+			<span>voxl was updated on the server.</span>
+			<button id="update-reload" class="btn primary" type="button">
+				<span>Reload</span>
+			</button>
+			<button
+				id="update-close"
+				class="ib sm"
+				type="button"
+				title="Not now"
+				aria-label="Dismiss">
+				<svg class="i" viewBox="0 0 24 24" fill="none">
+					<path
+						d="M8 8L16 16M16 8L8 16"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round" />
+				</svg>
+			</button>
 		</div>
 		<div id="status">Connecting…</div>
 		<div id="stats"></div>
