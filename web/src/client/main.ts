@@ -9,6 +9,7 @@ import { createClipboard } from './clipboard';
 import { createCursor } from './cursor';
 import { createFiles } from './files';
 import { setupKeyboard } from './keyboard';
+import { createKeymap } from './keymap';
 import { createMic } from './mic';
 import { setupPointer } from './pointer';
 import { createResize } from './resize';
@@ -98,9 +99,9 @@ function main() {
 		clipboard.flush();
 	};
 	setupPointer(app, zoom, onInteract);
-	setupKeyboard(app, clipboard, onInteract);
 	setupToolbar(app, video.layout);
 	const files = createFiles(app);
+	setupKeyboard(app, clipboard, createKeymap(app), onInteract);
 	const mic = createMic(app);
 	const resize = createResize(app);
 

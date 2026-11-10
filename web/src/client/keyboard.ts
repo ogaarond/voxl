@@ -3,6 +3,7 @@
 import { Bin, cmd } from '../protocol';
 import type { App } from './app';
 import type { Clipboard } from './clipboard';
+import type { Keymap } from './keymap';
 
 const NAMED: Record<string, number> = {
 	Backspace: 0xff08,
@@ -39,7 +40,7 @@ const charKeysym = (cp: number) =>
 		? cp
 		: 0x01000000 + cp;
 
-async function toPng(file: File): Promise<ArrayBuffer> {
+async function toPng(file: Blob): Promise<ArrayBuffer> {
 	if (file.type === 'image/png') return file.arrayBuffer();
 	const bmp = await createImageBitmap(file);
 	const c = new OffscreenCanvas(bmp.width, bmp.height);
@@ -50,6 +51,7 @@ async function toPng(file: File): Promise<ArrayBuffer> {
 export function setupKeyboard(
 	app: App,
 	clipboard: Clipboard,
+	keymap: Keymap,
 	onInteract: () => void
 ) {
 	const { kbd, surface, send, isMac } = app;
@@ -80,6 +82,8 @@ export function setupKeyboard(
 	}
 
 	function keysymOf(e: KeyboardEvent): number {
+		const mapped = keymap.get(e.code);
+		if (mapped !== undefined) return mapped;
 		const mod = modifierKeysym(e.code);
 		if (mod !== undefined) return mod;
 		if (BY_CODE[e.code] !== undefined) {
@@ -117,6 +121,45 @@ export function setupKeyboard(
 		down.clear();
 		send(cmd.releaseAll);
 	}
+	/** The desktop's shortcut modifier (Command on a Mac, Control elsewhere) is held. */
+	function remoteAccelHeld() {
+		const want = app.remoteMac
+			? [XK_SUPER_L, XK_SUPER_R]
+			: [XK_CONTROL_L, XK_CONTROL_R];
+		for (const k of down.values()) if (want.includes(k)) return true;
+		return false;
+	}
+	async function readLocalClipboard() {
+		try {
+			if (navigator.clipboard?.read) {
+				// A copy puts one item on the clipboard, in one or more formats.
+				const [item] = await navigator.clipboard.read();
+				if (!item) return;
+				if (item.types.includes('text/plain')) {
+					const text = await (await item.getType('text/plain')).text();
+					if (text) {
+						clipboard.noteLocal(text);
+						send(cmd.clipboard(text));
+					}
+					return;
+				}
+				const img = item.types.find((t) => t.startsWith('image/'));
+				if (img) {
+					const png = await toPng(await item.getType(img));
+					app.sendBin(Bin.ClipImageUp, new Uint8Array(png));
+				}
+			} else if (navigator.clipboard?.readText) {
+				const text = await navigator.clipboard.readText();
+				if (text) {
+					clipboard.noteLocal(text);
+					send(cmd.clipboard(text));
+				}
+			}
+		} catch (err) {
+			// Permission denied or nothing readable: paste what the desktop already has.
+			console.warn('[voxl] reading the local clipboard failed', err);
+		}
+	}
 	function flushPaste() {
 		if (!pendingPaste) return;
 		const p = pendingPaste;
@@ -129,12 +172,26 @@ export function setupKeyboard(
 		if (e.isComposing) return;
 		onInteract();
 		const ks = keysymOf(e);
-		if (!ks) return;
+		if (!ks) {
+			// A key mapped to nothing does nothing here either.
+			if (keymap.get(e.code) === 0) e.preventDefault();
+			return;
+		}
+		const isV = (e.key === 'v' || e.key === 'V') && !e.repeat;
 		const accel = isMac ? e.metaKey : e.ctrlKey;
-		if (accel && !e.altKey && (e.key === 'v' || e.key === 'V') && !e.repeat) {
+		if (isV && accel && !e.altKey) {
 			// Let the browser deliver a paste event to the hidden textarea first, so the
 			// remote clipboard holds the local contents before the shortcut lands.
 			pendingPaste = { code: e.code, ks, timer: setTimeout(flushPaste, 150) };
+			return;
+		}
+		if (isV && remoteAccelHeld()) {
+			// The desktop's paste shortcut through a remapped key (Left Alt as Command):
+			// the browser sees no paste, so read the local clipboard ourselves (the
+			// browser asks once for permission) before the shortcut lands.
+			e.preventDefault();
+			pendingPaste = { code: e.code, ks, timer: setTimeout(flushPaste, 3000) };
+			readLocalClipboard().finally(flushPaste);
 			return;
 		}
 		e.preventDefault();

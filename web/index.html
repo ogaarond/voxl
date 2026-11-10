@@ -207,7 +207,8 @@
 				display: inline-grid !important;
 			}
 			/* Read-only: nothing on the desktop accepts what the keyboard would send. */
-			#tools.read-only #kb-btn {
+			#tools.read-only #kb-btn,
+			#tools.read-only #keys-btn {
 				display: none !important;
 			}
 			/* While the microphone is live the toolbar stays up as a recording indicator. */
@@ -285,7 +286,8 @@
 				font: 440 13px/16px var(--font);
 				letter-spacing: -0.2px;
 			}
-			#files.open {
+			#files.open,
+			#keys.open {
 				display: flex;
 				animation: enter 0.15s cubic-bezier(0.23, 1, 0.32, 1);
 			}
@@ -296,11 +298,13 @@
 				}
 			}
 			@media (prefers-reduced-motion: reduce) {
-				#files.open {
+				#files.open,
+				#keys.open {
 					animation: none;
 				}
 			}
-			#files header {
+			#files header,
+			#keys header {
 				display: flex;
 				align-items: center;
 				gap: 4px;
@@ -309,7 +313,8 @@
 				padding: 6px 2px 6px 8px;
 				box-sizing: border-box;
 			}
-			#files header h2 {
+			#files header h2,
+			#keys header h2 {
 				flex: 1;
 				margin: 0;
 				font-size: 13px;
@@ -537,9 +542,97 @@
 			.f-up.err .f-bar {
 				display: none;
 			}
-			#files footer {
+			#files footer,
+			#keys footer {
 				padding: 8px 8px 4px;
 				color: var(--text-weak);
+			}
+
+			/* Key mapping panel: the Files panel's frame, as tall as its rows. */
+			#keys {
+				position: fixed;
+				top: 8px;
+				right: 8px;
+				width: min(380px, calc(100vw - 16px));
+				max-height: calc(100vh - 16px);
+				z-index: 4;
+				display: none;
+				flex-direction: column;
+				box-sizing: border-box;
+				padding: 4px;
+				background: var(--surface-secondary);
+				border: 1px solid var(--border-default);
+				border-radius: 16px;
+				box-shadow: var(--shadow-lg);
+				color: var(--text-default);
+				font: 440 13px/16px var(--font);
+				letter-spacing: -0.2px;
+			}
+			#keys-list {
+				overflow-y: auto;
+				padding: 6px;
+				scrollbar-width: thin;
+				scrollbar-color: #ffffff29 transparent;
+			}
+			.k-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				height: 32px;
+				padding: 0 2px 0 8px;
+				border-radius: 6px;
+			}
+			.k-row:hover {
+				background: var(--state-hover);
+			}
+			.k-from {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				color: var(--text-title);
+				font-weight: 520;
+			}
+			.k-arrow {
+				color: var(--text-muted);
+			}
+			.k-row select {
+				width: 168px;
+				height: 24px;
+				padding: 0 4px;
+				border: 0;
+				border-radius: 6px;
+				background: var(--fill-tertiary);
+				color: var(--text-default);
+				font: inherit;
+				color-scheme: dark;
+				cursor: pointer;
+			}
+			.k-row select:hover {
+				background: var(--fill-tertiary-hover);
+			}
+			.k-row select:focus-visible {
+				outline: none;
+				box-shadow: var(--focus-ring);
+			}
+			.k-empty {
+				padding: 20px 12px;
+				text-align: center;
+				color: var(--text-weak);
+				font-weight: 520;
+			}
+			#keys-add {
+				margin: 0 6px 6px;
+				align-self: flex-start;
+				background: var(--fill-tertiary);
+			}
+			#keys-add:hover {
+				background: var(--fill-tertiary-hover);
+			}
+			#keys-add.on {
+				color: var(--text-title);
+				box-shadow: 0 0 0 1.5px var(--accent) inset;
 			}
 
 			/* Drop target: a dialog-style card over a scrim. */
@@ -664,6 +757,21 @@
 				</svg>
 			</button>
 			<button
+				id="keys-btn"
+				class="ib"
+				type="button"
+				title="Key mapping"
+				aria-label="Key mapping">
+				<svg class="i" viewBox="0 0 24 24" fill="none">
+					<path
+						d="M15 6V18A3 3 0 1 0 18 15H6A3 3 0 1 0 9 18V6A3 3 0 1 0 6 9H18A3 3 0 1 0 15 6"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round" />
+				</svg>
+			</button>
+			<button
 				id="fs-btn"
 				class="ib"
 				type="button"
@@ -773,6 +881,41 @@
 			<footer></footer>
 			<input id="files-input" type="file" multiple hidden />
 			<input id="files-input-dir" type="file" webkitdirectory multiple hidden />
+		</div>
+		<div id="keys" role="dialog" aria-label="Key mapping">
+			<header>
+				<h2>Key mapping</h2>
+				<button
+					id="keys-close"
+					class="ib sm"
+					type="button"
+					title="Close"
+					aria-label="Close">
+					<svg class="i" viewBox="0 0 24 24" fill="none">
+						<path
+							d="M8 8L16 16M16 8L8 16"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round" />
+					</svg>
+				</button>
+			</header>
+			<div class="body">
+				<div id="keys-list"></div>
+				<button id="keys-add" class="btn" type="button">
+					<svg class="i" viewBox="0 0 24 24" fill="none">
+						<path
+							d="M12 5V19M5 12H19"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round" /></svg
+					><span>Add mapping</span>
+				</button>
+			</div>
+			<footer>
+				Each key on your keyboard sends the key you pick to the remote computer.
+				Saved in this browser for this host.
+			</footer>
 		</div>
 		<div id="drop">
 			<div class="frame">
