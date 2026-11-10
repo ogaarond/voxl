@@ -242,6 +242,8 @@ impl Injector {
     }
 
     fn handle(&mut self, ev: InputEvent) {
+        // Synthetic events don't reliably wake a sleeping display or end the screensaver.
+        super::power::user_activity();
         match ev {
             InputEvent::Move { x, y } => {
                 self.pos = self.to_point(x, y);

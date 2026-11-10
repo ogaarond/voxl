@@ -8,6 +8,7 @@
 //! - audio: system audio from ScreenCaptureKit
 //! - screen: dynamic resolution by switching display modes
 //! - mic: browser microphone played into a loopback output device
+//! - power: keeps the display awake while watched, wakes it for viewers and input
 
 pub mod audio;
 pub mod capture;
@@ -15,6 +16,7 @@ pub mod desktop;
 pub mod ffi;
 pub mod input;
 pub mod mic;
+pub mod power;
 pub mod screen;
 pub mod stream;
 
@@ -49,6 +51,7 @@ struct Settings {
     max_pixels: f64,
     fps: u32,
     show_cursor: bool,
+    keep_display_awake: bool,
 }
 
 static SETTINGS: Mutex<Settings> = Mutex::new(Settings {
@@ -57,6 +60,7 @@ static SETTINGS: Mutex<Settings> = Mutex::new(Settings {
     max_pixels: 2560.0 * 1600.0,
     fps: 60,
     show_cursor: false,
+    keep_display_awake: true,
 });
 
 /// Reads the macOS options and checks the privacy permissions voxl needs.
@@ -68,6 +72,7 @@ pub fn init(a: &HashMap<String, String>) {
         let mut s = SETTINGS.lock();
         s.display = display;
         s.show_cursor = show_cursor;
+        s.keep_display_awake = crate::truthy(a.get("keep-display-awake"), true);
         s.scale = a
             .get("capture-scale")
             .and_then(|v| v.parse().ok())
@@ -168,6 +173,10 @@ pub fn fps() -> u32 {
 
 pub fn show_cursor() -> bool {
     SETTINGS.lock().show_cursor
+}
+
+pub fn keep_display_awake() -> bool {
+    SETTINGS.lock().keep_display_awake
 }
 
 /// Pixels per point for a `w`x`h`-point desktop whose panel has `native` pixels per

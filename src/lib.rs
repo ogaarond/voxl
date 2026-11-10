@@ -222,6 +222,8 @@ async fn serve(a: HashMap<String, String>) {
         log::error!("video init failed: {e}");
         std::process::exit(1);
     }
+    #[cfg(target_os = "macos")]
+    mac::power::spawn(hub.clone());
     let radius = range_max(a.get("round-corners"), 0.0) as u16;
     // --round-windows=title:radius,...: round specific windows (docks included) by title.
     let named: Vec<(String, u16)> = a

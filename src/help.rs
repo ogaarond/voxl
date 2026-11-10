@@ -88,6 +88,8 @@ Desktop (this Mac's screen):
   --read-only                   viewers only watch (default false)
   --show-cursor                 include the host cursor in the video stream
                                 (default: true with --read-only, else false)
+  --keep-display-awake          the display doesn't idle into sleep while a
+                                viewer is connected (default true)
   --scroll-px-per-notch         pixels one wheel notch scrolls (default 180)
 ";
 

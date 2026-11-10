@@ -103,7 +103,7 @@ pub fn spawn(
                     log::warn!("resize to {w}x{h} failed: {e}");
                 }
             }
-            p = match build(&cfg, &hub) {
+            p = match rebuild(&cfg, &hub) {
                 Ok(p) => p,
                 Err(e) => {
                     log::error!("video restart failed: {e}");
@@ -113,6 +113,40 @@ pub fn spawn(
         })
         .unwrap();
     Ok(())
+}
+
+/// Builds the pipeline again after the capture ended. On a Mac the screen can be
+/// briefly uncapturable (display asleep, screensaver, lock screen, fast user
+/// switching), so this waits for it to come back, keeping clients connected, instead
+/// of giving up; elsewhere a failure is final.
+fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
+    if !cfg!(target_os = "macos") {
+        return build(cfg, hub);
+    }
+    let started = Instant::now();
+    let mut delay = Duration::from_millis(250);
+    let mut last_log: Option<Instant> = None;
+    loop {
+        match build(cfg, hub) {
+            Ok(p) => {
+                if last_log.is_some() {
+                    log::info!(
+                        "video capture resumed after {:.1} s",
+                        started.elapsed().as_secs_f64()
+                    );
+                }
+                return Ok(p);
+            }
+            Err(e) => {
+                if last_log.is_none_or(|t| t.elapsed() >= Duration::from_secs(30)) {
+                    log::warn!("video capture unavailable ({e}); retrying");
+                    last_log = Some(Instant::now());
+                }
+                std::thread::sleep(delay);
+                delay = (delay * 2).min(Duration::from_secs(2));
+            }
+        }
+    }
 }
 
 fn build(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {

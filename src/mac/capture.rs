@@ -100,6 +100,11 @@ impl Capturer {
     pub fn new(_display: Option<&str>) -> Result<Self, String> {
         let display = super::display();
         let (width, height) = super::capture_size(display);
+        if width < 16 || height < 16 {
+            return Err(format!(
+                "display {display} reports {width}x{height} (asleep or offline)"
+            ));
+        }
         let geometry = Geometry {
             display,
             bounds: unsafe { CGDisplayBounds(display) },

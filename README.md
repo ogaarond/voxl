@@ -241,6 +241,12 @@ apps that should hear you.
 | `--microphone-device`  | first loopback device found         | output device (name or prefix) to play the browser microphone into                     |
 | `--resize-scale`       | the capture scale                   | so a viewer's window maps to the same number of points on the Mac                      |
 | `--show-cursor`        | `false` (`true` with `--read-only`) | include the host cursor in the video stream (for viewers/observers)                    |
+| `--keep-display-awake` | `true`                              | the display doesn't idle into sleep while a viewer is connected                        |
+
+A viewer connecting, or sending input, wakes a sleeping display and dismisses the
+screensaver (to the lock screen, if the Mac locks). If the display sleeps, locks or
+otherwise interrupts capture, voxl keeps viewers connected and resumes streaming
+when it comes back.
 
 The other flags work as on Linux; `--audio-device-name`, `--microphone-fifo` and the
 rounded-corner flags don't apply.
