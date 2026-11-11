@@ -81,6 +81,8 @@ pub unsafe fn cf_string(s: CFStringRef) -> String {
 extern "C" {
     pub fn CGMainDisplayID() -> u32;
     pub fn CGGetActiveDisplayList(max: u32, ids: *mut u32, count: *mut u32) -> i32;
+    pub fn CGGetOnlineDisplayList(max: u32, ids: *mut u32, count: *mut u32) -> i32;
+    pub fn CGDisplayIsAsleep(id: u32) -> u32;
     pub fn CGDisplayIsMain(id: u32) -> u32;
     pub fn CGDisplayBounds(id: u32) -> CGRect;
     pub fn CGDisplayPixelsWide(id: u32) -> usize;

@@ -73,43 +73,68 @@ pub fn spawn(
     if let Some(s) = &screen {
         *hub.resize_max.lock() = Some(s.max());
     }
-    let mut p = build(&cfg, &hub)?;
+    let first = match build(&cfg, &hub) {
+        Ok(p) => Some(p),
+        // A Mac whose display is asleep: serve anyway, so a viewer can connect and
+        // wake it, and start capturing then.
+        #[cfg(target_os = "macos")]
+        Err(e) if crate::mac::display_asleep() => {
+            log::warn!("{e}; starting anyway, capture begins when the display wakes");
+            let (w, h) = crate::mac::capture_size(crate::mac::display());
+            hub.width.store(w, Ordering::Relaxed);
+            hub.height.store(h, Ordering::Relaxed);
+            None
+        }
+        Err(e) => return Err(e),
+    };
     std::thread::Builder::new()
         .name("capture".into())
-        .spawn(move || loop {
-            let Pipeline {
-                mut cap,
-                job_tx,
-                ret_rx,
-                encode,
-            } = p;
-            if let Err(e) = capture_loop(&mut cap, cfg.clone(), hub.clone(), job_tx, ret_rx) {
-                #[cfg(target_os = "linux")]
-                let resized = cap.geometry_changed();
-                #[cfg(not(target_os = "linux"))]
-                let resized = false;
-                if resized {
-                    log::info!("capture geometry changed: {e}");
-                } else {
-                    log::error!("capture loop ended: {e}");
-                    std::process::exit(1);
-                }
-            }
-            drop(cap);
-            let _ = encode.join();
-            let req = hub.resize_req.lock().take();
-            if let (Some(s), Some((w, h))) = (screen.as_mut(), req) {
-                if let Err(e) = s.resize(w, h) {
-                    log::warn!("resize to {w}x{h} failed: {e}");
-                }
-            }
-            p = match rebuild(&cfg, &hub) {
-                Ok(p) => p,
-                Err(e) => {
-                    log::error!("video restart failed: {e}");
-                    std::process::exit(1);
-                }
+        .spawn(move || {
+            let mut p = match first {
+                Some(p) => p,
+                None => match rebuild(&cfg, &hub) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        log::error!("video init failed: {e}");
+                        std::process::exit(1);
+                    }
+                },
             };
+            loop {
+                let Pipeline {
+                    mut cap,
+                    job_tx,
+                    ret_rx,
+                    encode,
+                } = p;
+                if let Err(e) = capture_loop(&mut cap, cfg.clone(), hub.clone(), job_tx, ret_rx) {
+                    #[cfg(target_os = "linux")]
+                    let resized = cap.geometry_changed();
+                    #[cfg(not(target_os = "linux"))]
+                    let resized = false;
+                    if resized {
+                        log::info!("capture geometry changed: {e}");
+                    } else {
+                        log::error!("capture loop ended: {e}");
+                        std::process::exit(1);
+                    }
+                }
+                drop(cap);
+                let _ = encode.join();
+                let req = hub.resize_req.lock().take();
+                if let (Some(s), Some((w, h))) = (screen.as_mut(), req) {
+                    if let Err(e) = s.resize(w, h) {
+                        log::warn!("resize to {w}x{h} failed: {e}");
+                    }
+                }
+                p = match rebuild(&cfg, &hub) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        log::error!("video restart failed: {e}");
+                        std::process::exit(1);
+                    }
+                };
+            }
         })
         .unwrap();
     Ok(())

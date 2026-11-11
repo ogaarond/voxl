@@ -152,10 +152,15 @@ fn pick_display(arg: Option<&str>) -> u32 {
     }
 }
 
+/// The displays to choose from. While every display sleeps none is active, so then
+/// it's the online ones (connected, awake or not).
 pub fn active_displays() -> Vec<u32> {
     let mut ids = [0u32; 16];
     let mut n = 0u32;
     unsafe { CGGetActiveDisplayList(16, ids.as_mut_ptr(), &mut n) };
+    if n == 0 {
+        unsafe { CGGetOnlineDisplayList(16, ids.as_mut_ptr(), &mut n) };
+    }
     let mut v = ids[..n as usize].to_vec();
     // Main display first, so index 0 is the main one.
     let main = unsafe { CGMainDisplayID() };
@@ -165,6 +170,12 @@ pub fn active_displays() -> Vec<u32> {
 
 pub fn display() -> u32 {
     SETTINGS.lock().display
+}
+
+/// Whether capture is failing only because the captured display is asleep (with
+/// Screen Recording allowed, so it will work once the display wakes).
+pub fn display_asleep() -> bool {
+    unsafe { CGDisplayIsAsleep(display()) != 0 && CGPreflightScreenCaptureAccess() }
 }
 
 pub fn fps() -> u32 {

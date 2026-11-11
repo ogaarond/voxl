@@ -239,14 +239,20 @@ mod tests {
     #[test]
     fn kicks_wake_a_waiting_capture() {
         let seen = kicks();
-        assert!(!wait_for_kick(seen, Duration::from_millis(20)), "no kick yet");
+        assert!(
+            !wait_for_kick(seen, Duration::from_millis(20)),
+            "no kick yet"
+        );
         let t = std::thread::spawn(|| {
             std::thread::sleep(Duration::from_millis(50));
             kick();
         });
         let start = Instant::now();
         assert!(wait_for_kick(seen, Duration::from_secs(5)));
-        assert!(start.elapsed() < Duration::from_secs(1), "woke on the kick, not the timeout");
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "woke on the kick, not the timeout"
+        );
         t.join().unwrap();
         // A kick that came before the wait still counts.
         assert!(wait_for_kick(seen, Duration::ZERO));
