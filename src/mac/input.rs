@@ -243,7 +243,10 @@ impl Injector {
 
     fn handle(&mut self, ev: InputEvent) {
         // Synthetic events don't reliably wake a sleeping display or end the screensaver.
-        super::power::user_activity();
+        // Releasing keys (a viewer leaving, voxl quitting) isn't someone at the controls.
+        if !matches!(ev, InputEvent::ReleaseAll | InputEvent::Shutdown) {
+            super::power::user_activity();
+        }
         match ev {
             InputEvent::Move { x, y } => {
                 self.pos = self.to_point(x, y);
