@@ -105,12 +105,13 @@ pub fn run(args: impl IntoIterator<Item = String>) {
         .enable_all()
         .build()
         .expect("tokio runtime");
-    // AppKit and the keyboard layout APIs want the main thread, so on macOS it runs the
-    // main dispatch queue and the server runs beside it.
+    // AppKit and the keyboard layout APIs want the main thread, so on macOS it runs
+    // AppKit's event loop (which also runs the main dispatch queue) and the server runs
+    // beside it.
     #[cfg(target_os = "macos")]
     {
         std::thread::spawn(move || rt.block_on(serve(a)));
-        dispatch2::dispatch_main();
+        mac::power::run_main_thread();
     }
     #[cfg(not(target_os = "macos"))]
     rt.block_on(serve(a));

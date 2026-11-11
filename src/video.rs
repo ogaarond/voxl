@@ -115,27 +115,55 @@ pub fn spawn(
     Ok(())
 }
 
-/// Builds the pipeline again after the capture ended. On a Mac the screen can be
-/// briefly uncapturable (display asleep, screensaver, lock screen, fast user
-/// switching), so this waits for it to come back, keeping clients connected, instead
-/// of giving up; elsewhere a failure is final.
+/// Builds the pipeline again after the capture ended. Elsewhere than on a Mac a
+/// failure is final.
+#[cfg(not(target_os = "macos"))]
 fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
-    if !cfg!(target_os = "macos") {
-        return build(cfg, hub);
-    }
+    build(cfg, hub)
+}
+
+/// After a capture is lost, how long to keep retrying quickly before waiting for a
+/// sign that the screen is back.
+#[cfg(target_os = "macos")]
+const RETRY_BURST: Duration = Duration::from_secs(10);
+/// With nobody watching and no sign of life, how often to try anyway, in case a wake
+/// went unannounced.
+#[cfg(target_os = "macos")]
+const IDLE_RETRY: Duration = Duration::from_secs(60);
+
+/// Builds the pipeline again after the capture ended. On a Mac the screen can be
+/// uncapturable for a while (display asleep, screensaver, lock screen, fast user
+/// switching), so this waits for it to come back, keeping clients connected, instead
+/// of giving up.
+///
+/// It retries quickly for a few seconds after the loss, and for as long as a viewer is
+/// connected. Otherwise it leaves ScreenCaptureKit alone until the display wakes, a
+/// viewer arrives or input comes in (see `mac::power::kick`), with a slow retry as a
+/// fallback.
+#[cfg(target_os = "macos")]
+fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
+    use crate::mac::power;
+    const FIRST: Duration = Duration::from_millis(250);
     let mut retry = crate::retry::RetryLog::new("video capture");
-    let mut delay = Duration::from_millis(250);
+    let mut delay = FIRST;
+    let mut burst_until = Instant::now() + RETRY_BURST;
     loop {
+        let seen = power::kicks();
         match build(cfg, hub) {
             Ok(p) => {
                 retry.recovered();
                 return Ok(p);
             }
-            Err(e) => {
-                retry.failed(&e);
-                std::thread::sleep(delay);
-                delay = (delay * 2).min(Duration::from_secs(2));
-            }
+            Err(e) => retry.failed(&e),
+        }
+        let eager = Instant::now() < burst_until || !hub.video_clients().is_empty();
+        let wait = if eager { delay } else { IDLE_RETRY };
+        if power::wait_for_kick(seen, wait) {
+            log::debug!("video capture: retrying now (display woke, a viewer arrived or input came in)");
+            delay = FIRST;
+            burst_until = Instant::now() + RETRY_BURST;
+        } else if eager {
+            delay = (delay * 2).min(Duration::from_secs(2));
         }
     }
 }
