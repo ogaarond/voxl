@@ -122,31 +122,15 @@ fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
     build(cfg, hub)
 }
 
-/// After a capture is lost, how long to keep retrying quickly before waiting for a
-/// sign that the screen is back.
-#[cfg(target_os = "macos")]
-const RETRY_BURST: Duration = Duration::from_secs(10);
-/// With nobody watching and no sign of life, how often to try anyway, in case a wake
-/// went unannounced.
-#[cfg(target_os = "macos")]
-const IDLE_RETRY: Duration = Duration::from_secs(60);
-
 /// Builds the pipeline again after the capture ended. On a Mac the screen can be
 /// uncapturable for a while (display asleep, screensaver, lock screen, fast user
 /// switching), so this waits for it to come back, keeping clients connected, instead
-/// of giving up.
-///
-/// It retries quickly for a few seconds after the loss, and for as long as a viewer is
-/// connected. Otherwise it leaves ScreenCaptureKit alone until the display wakes, a
-/// viewer arrives or input comes in (see `mac::power::kick`), with a slow retry as a
-/// fallback.
+/// of giving up; `mac::power::RetryPacer` sets the pace.
 #[cfg(target_os = "macos")]
 fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
     use crate::mac::power;
-    const FIRST: Duration = Duration::from_millis(250);
     let mut retry = crate::retry::RetryLog::new("video capture");
-    let mut delay = FIRST;
-    let mut burst_until = Instant::now() + RETRY_BURST;
+    let mut pace = power::RetryPacer::new();
     loop {
         let seen = power::kicks();
         match build(cfg, hub) {
@@ -156,15 +140,7 @@ fn rebuild(cfg: &VideoConfig, hub: &Arc<Hub>) -> Result<Pipeline, String> {
             }
             Err(e) => retry.failed(&e),
         }
-        let eager = Instant::now() < burst_until || !hub.video_clients().is_empty();
-        let wait = if eager { delay } else { IDLE_RETRY };
-        if power::wait_for_kick(seen, wait) {
-            log::debug!("video capture: retrying now (display woke, a viewer arrived or input came in)");
-            delay = FIRST;
-            burst_until = Instant::now() + RETRY_BURST;
-        } else if eager {
-            delay = (delay * 2).min(Duration::from_secs(2));
-        }
+        pace.wait(seen, !hub.video_clients().is_empty());
     }
 }
 

@@ -51,6 +51,51 @@ pub fn wait_for_kick(seen: u64, timeout: Duration) -> bool {
     *n != seen
 }
 
+/// After a capture is lost, how long to keep retrying quickly before waiting for a
+/// sign that the screen is back.
+const RETRY_BURST: Duration = Duration::from_secs(10);
+const FIRST_RETRY: Duration = Duration::from_millis(250);
+const MAX_RETRY: Duration = Duration::from_secs(2);
+/// With nobody watching and no sign of life, how often to try anyway, in case a wake
+/// went unannounced.
+const IDLE_RETRY: Duration = Duration::from_secs(60);
+
+/// Paces a loop retrying a capture the screen took away (display asleep, screensaver,
+/// lock screen). It retries quickly for a few seconds after the loss, and for as long
+/// as someone is watching; otherwise it leaves ScreenCaptureKit alone until a [`kick`]
+/// (display woke, viewer arrived, input came in), with a slow retry as a fallback.
+pub struct RetryPacer {
+    delay: Duration,
+    burst_until: Instant,
+}
+
+impl Default for RetryPacer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RetryPacer {
+    pub fn new() -> Self {
+        RetryPacer {
+            delay: FIRST_RETRY,
+            burst_until: Instant::now() + RETRY_BURST,
+        }
+    }
+
+    /// Waits before the next try. `seen` is [`kicks`] from before the failed try, so a
+    /// kick during it isn't missed; `watched` is whether a viewer wants video.
+    pub fn wait(&mut self, seen: u64, watched: bool) {
+        let eager = watched || Instant::now() < self.burst_until;
+        if wait_for_kick(seen, if eager { self.delay } else { IDLE_RETRY }) {
+            log::debug!("capture: retrying now (display woke, a viewer arrived or input came in)");
+            *self = RetryPacer::new();
+        } else if eager {
+            self.delay = (self.delay * 2).min(MAX_RETRY);
+        }
+    }
+}
+
 /// Runs the main thread for good, as a background AppKit app (no Dock icon or menu
 /// bar). macOS only says the display slept or woke to a process running AppKit's event
 /// loop; the loop also runs the main dispatch queue, which the keyboard layout lookups use.

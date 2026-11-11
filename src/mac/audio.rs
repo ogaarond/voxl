@@ -162,11 +162,13 @@ pub fn spawn(_device: String, bitrate: i32, hub: Arc<Hub>) {
                     .any(|c| c.audio.load(Ordering::Relaxed))
             };
             let mut retry = crate::retry::RetryLog::new("audio capture");
+            let mut pace = super::power::RetryPacer::new();
             loop {
                 if !want() {
                     std::thread::sleep(Duration::from_millis(200));
                     continue;
                 }
+                let seen = super::power::kicks();
                 let (e, h) = (encoder.clone(), hub.clone());
                 let on_sample = move |sb: CMSampleBufferRef, ty: OutputType| {
                     if ty != OutputType::Audio {
@@ -201,8 +203,10 @@ pub fn spawn(_device: String, bitrate: i32, hub: Arc<Hub>) {
                 let s = match s {
                     Ok(s) => s,
                     Err(e) => {
+                        // A hidden tab still wants audio but doesn't count as watching,
+                        // so a sleeping display isn't polled for it.
                         retry.failed(&e);
-                        std::thread::sleep(Duration::from_secs(2));
+                        pace.wait(seen, !hub.video_clients().is_empty());
                         continue;
                     }
                 };
@@ -214,6 +218,8 @@ pub fn spawn(_device: String, bitrate: i32, hub: Arc<Hub>) {
                 drop(s);
                 encoder.lock().pending.clear();
                 log::info!("audio capture stopped");
+                // Quick retries count from this loss, not from the last one.
+                pace = super::power::RetryPacer::new();
             }
         })
         .unwrap();
